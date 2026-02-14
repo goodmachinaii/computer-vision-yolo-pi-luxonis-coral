@@ -1,58 +1,80 @@
-# YOLO PI LUXONIS CORAL (Con fallback a Pi)
+# YOLO PI LUXONIS CORAL (con fallback a Pi)
 
-Versión separada que prioriza Coral EdgeTPU con backend Docker, y fallback automático a CPU si Coral no está disponible.
+Pipeline híbrido para **Luxonis OAK + Coral TPU + Raspberry Pi**.
+Prioriza inferencia en Coral y mantiene fallback automático a CPU para continuidad operativa.
 
-## Arquitectura
-- **Host (Pi):**
-  - captura RGB + depth desde Luxonis
-  - UI, botones STOP/EXIT, overlay, fusión con Z
-- **Docker coral-infer:**
-  - inferencia con `pycoral` + `tflite-runtime` compatibles (Debian Bullseye)
-  - API local HTTP en `127.0.0.1:8765`
+## Qué hace
+- Captura RGB + depth desde Luxonis OAK.
+- Ejecuta inferencia de objetos vía servicio Coral en Docker (`pycoral`).
+- Si Coral no está disponible, cae a detector CPU host sin romper la app.
+- Fusiona detecciones con depth para mostrar distancia `Z` por objeto.
+
+## Método técnico (detección + profundidad)
+1. **Host (Pi) captura RGB/depth** desde OAK.
+2. **Backend Coral Docker** recibe frame (JPG) por HTTP local.
+3. **EdgeTPU** corre modelo TFLite compilado (`ssdlite_mobiledet..._edgetpu.tflite`).
+4. Host recibe detecciones JSON y dibuja bounding boxes + `Z` usando mapa depth.
+5. Si Docker Coral no responde, el script usa fallback CPU.
 
 ## Modos de inferencia (automático)
 1. `coral-docker` (preferido)
-2. `coral-local` (si existiera runtime local compatible)
-3. `cpu` (fallback con YOLO host)
+2. `coral-local` (si runtime local compatible existiera)
+3. `cpu` (fallback)
+
+En la UI se muestra explícitamente:
+- `INFERENCE: CORAL` (verde)
+- `INFERENCE: CPU FALLBACK` (rojo)
+
+## Funcionalidades de operación
+- Botones: **STOP** / **EXIT**.
+- Teclas: `ESC` / `q`.
+- Watchdog con reinicio automático de pipeline.
+- Arranque del stack completo con script único.
+
+## Hardware requerido
+- Raspberry Pi 4.
+- Luxonis OAK (RGB + estéreo depth).
+- Coral USB TPU.
+- USB estable (ideal separar cargas o usar hub alimentado cuando sea necesario).
+
+## Software requerido
+- Host:
+  - Docker + Docker Compose
+  - Python host con `depthai`, `opencv-python`, `numpy`
+- Contenedor Coral (Bullseye):
+  - `python3-pycoral`
+  - `python3-tflite-runtime`
+  - `libedgetpu1-std`
 
 ## Archivos principales
 - `YOLO_PI_LUXONIS_CORAL.py`
+- `start_coral_stack.sh`
+- `stop_coral_stack.sh`
 - `docker-compose.yml`
 - `docker/Dockerfile`
 - `docker/app.py`
-- `start_coral_stack.sh`
-- `stop_coral_stack.sh`
+- `models/*` y `docker/models/*`
+- `launchers/START.desktop` (doble click)
 
-## Modelos
-- Host/Coral script:
-  - `models/ssdlite_mobiledet_coco_qat_postprocess_edgetpu.tflite`
-  - `models/coco_labels.txt`
-- Contenedor:
-  - `docker/models/...` (mismos archivos)
+## Ejecución
+### Doble click
+- Abrir: `launchers/START.desktop`
 
-## Controles UI
-- **STOP / EXIT** (abajo izquierda)
-- `ESC` / `q`
-- Indicador en pantalla:
-  - `INFERENCE: CORAL` (verde)
-  - `INFERENCE: CPU FALLBACK` (rojo)
-
-## Arranque recomendado
+### Manual
 ```bash
 ./start_coral_stack.sh
-```
-
-## Parada
-```bash
-./stop_coral_stack.sh
 ```
 
 ## Verificación de Coral real
 ```bash
 sudo docker compose ps
 curl -s http://127.0.0.1:8765/health
-sudo docker exec coral-infer python3 - <<'PY'
+sudo docker exec $(sudo docker compose ps -q coral-infer) python3 - <<'PY'
 from pycoral.utils.edgetpu import list_edge_tpus
 print(list_edge_tpus())
 PY
 ```
+
+## Troubleshooting rápido
+- Si aparece `mode=cpu`: revisar backend Coral (`docker compose ps`, logs, health).
+- Si hay `USB disconnect` en OAK/Coral: revisar cableado, energía y topología USB.
