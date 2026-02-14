@@ -20,8 +20,17 @@ done
 
 # Limpia flag y arranca app host
 rm -f STOP_OAK_CORAL_DETECTOR.flag
-VENV_ACTIVATE="${OAK_CORAL_VENV_ACTIVATE:-$PWD/.venv/bin/activate}"
-if [[ -f "$VENV_ACTIVATE" ]]; then
+VENV_ACTIVATE="${OAK_CORAL_VENV_ACTIVATE:-}"
+if [[ -z "$VENV_ACTIVATE" ]]; then
+  for candidate in "$PWD/.venv/bin/activate" \
+                   "/home/machina/.openclaw/workspace/.venv-luxonis/bin/activate"; do
+    if [[ -f "$candidate" ]]; then
+      VENV_ACTIVATE="$candidate"
+      break
+    fi
+  done
+fi
+if [[ -n "$VENV_ACTIVATE" && -f "$VENV_ACTIVATE" ]]; then
   # shellcheck disable=SC1090
   source "$VENV_ACTIVATE"
 fi
