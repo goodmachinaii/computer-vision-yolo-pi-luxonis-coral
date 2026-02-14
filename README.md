@@ -51,6 +51,7 @@ cd oak-coral-detector
 - `NMS_THRESHOLD`
 - `RGB_FPS`
 - `RGB_PREVIEW_SIZE` (ej: `640,360`)
+- `HEADLESS` (`auto` por defecto, o `1` para forzar sin GUI)
 
 Ejemplo:
 

@@ -39,6 +39,7 @@ RGB_PREVIEW_SIZE = tuple(map(int, os.environ.get('RGB_PREVIEW_SIZE', '640,360').
 RGB_FPS = int(os.environ.get('RGB_FPS', '15'))
 CONF_TH = float(os.environ.get('CONF_THRESHOLD', '0.35'))
 NMS_TH = float(os.environ.get('NMS_THRESHOLD', '0.40'))
+HEADLESS = os.environ.get('HEADLESS', 'auto').lower()
 
 
 def log(msg: str) -> None:
@@ -209,6 +210,9 @@ def run_once(detector, mode):
     btn_stop = [0, 0, 0, 0]
     btn_exit = [0, 0, 0, 0]
 
+    has_display = bool(os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY'))
+    gui_enabled = has_display if HEADLESS == 'auto' else HEADLESS not in ('1', 'true', 'yes', 'on')
+
     def on_mouse(event, x, y, flags, param):
         _ = (flags, param)
         if event == cv2.EVENT_LBUTTONDOWN:
@@ -229,9 +233,12 @@ def run_once(detector, mode):
             q_rgb = device.getOutputQueue(name='rgb', maxSize=1, blocking=False)
             q_depth = device.getOutputQueue(name='depth', maxSize=1, blocking=False)
 
-            cv2.namedWindow('OAK Coral Detector - RGB+Depth')
-            cv2.setMouseCallback('OAK Coral Detector - RGB+Depth', on_mouse)
-            cv2.namedWindow('OAK Coral Detector - Depth')
+            if gui_enabled:
+                cv2.namedWindow('OAK Coral Detector - RGB+Depth')
+                cv2.setMouseCallback('OAK Coral Detector - RGB+Depth', on_mouse)
+                cv2.namedWindow('OAK Coral Detector - Depth')
+            else:
+                log('Modo headless activo: sin ventanas OpenCV (usar stop_coral_stack.sh para detener).')
 
             last_frame, last_depth = None, None
             last_frame_ts = time.monotonic()
@@ -264,8 +271,9 @@ def run_once(detector, mode):
                 if now - last_frame_ts > 6.0:
                     raise RuntimeError('No llegan frames RGB >6s (reinicio automático)')
                 if last_frame is None:
-                    if (cv2.waitKey(1) & 0xFF) in (27, ord('q')):
+                    if gui_enabled and (cv2.waitKey(1) & 0xFF) in (27, ord('q')):
                         return 'exit'
+                    time.sleep(0.005)
                     continue
 
                 frame = last_frame.copy()
@@ -325,14 +333,17 @@ def run_once(detector, mode):
                 cv2.putText(frame, f'FPS host: {fps:.1f} | infer: {infer_ms:.0f}ms', (12, 76), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1)
                 cv2.putText(frame, f'model: {model_name}', (12, 96), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (200, 200, 200), 1)
 
-                cv2.imshow('OAK Coral Detector - RGB+Depth', frame)
-                if last_depth is not None:
-                    dv = cv2.normalize(last_depth, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
-                    cv2.imshow('OAK Coral Detector - Depth', cv2.applyColorMap(dv, cv2.COLORMAP_TURBO))
+                if gui_enabled:
+                    cv2.imshow('OAK Coral Detector - RGB+Depth', frame)
+                    if last_depth is not None:
+                        dv = cv2.normalize(last_depth, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+                        cv2.imshow('OAK Coral Detector - Depth', cv2.applyColorMap(dv, cv2.COLORMAP_TURBO))
 
-                key = cv2.waitKey(1) & 0xFF
-                if key in (27, ord('q')):
-                    return 'exit'
+                    key = cv2.waitKey(1) & 0xFF
+                    if key in (27, ord('q')):
+                        return 'exit'
+                else:
+                    time.sleep(0.005)
     finally:
         cv2.destroyAllWindows()
 
