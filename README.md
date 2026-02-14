@@ -20,7 +20,8 @@ El runtime muestra explícitamente el modo (`coral-docker`, `coral-local`, `cpu`
 
 ## Estructura
 
-- `oak_coral_detector.py` (script principal)
+- `oak_coral_detector.py` (orquestador principal)
+- `oak_vision/` (módulos fase 1: config, capture, inference, depth, display)
 - `start_coral_stack.sh`
 - `stop_coral_stack.sh`
 - `download_cpu_models.sh` (descarga fallback CPU)
