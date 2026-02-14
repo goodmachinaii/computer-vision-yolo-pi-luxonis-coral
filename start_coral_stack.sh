@@ -34,4 +34,9 @@ if [[ -n "$VENV_ACTIVATE" && -f "$VENV_ACTIVATE" ]]; then
   # shellcheck disable=SC1090
   source "$VENV_ACTIVATE"
 fi
+
+# Qt/OpenCV font warnings mitigation
+export QT_QPA_FONTDIR="${QT_QPA_FONTDIR:-/usr/share/fonts/truetype/dejavu}"
+export QT_LOGGING_RULES="${QT_LOGGING_RULES:-*.debug=false;qt.qpa.*=false}"
+
 exec python oak_coral_detector.py
