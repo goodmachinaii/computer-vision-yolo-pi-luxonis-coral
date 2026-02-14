@@ -2,6 +2,6 @@
 Version=1.0
 Type=Application
 Name=START OAK Coral Detector
-Exec=/bin/bash -lc 'cd "$HOME/Desktop/computer vision/computer-vision-yolo-pi-luxonis-coral" && ./start_coral_stack.sh'
+Exec=/bin/bash -lc 'cd "$HOME/Desktop/computer vision/oak-coral-detector" && ./start_coral_stack.sh'
 Icon=camera-video
 Terminal=true
