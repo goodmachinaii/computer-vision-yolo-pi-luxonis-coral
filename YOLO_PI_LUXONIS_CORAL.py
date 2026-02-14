@@ -31,6 +31,7 @@ YOLO_NAMES = MODELS_DIR / 'coco.names'
 CORAL_MODEL = BASE_DIR / 'models/ssdlite_mobiledet_coco_qat_postprocess_edgetpu.tflite'
 CORAL_LABELS = BASE_DIR / 'models/coco_labels.txt'
 CORAL_DOCKER_URL = 'http://127.0.0.1:8765'
+CORAL_HTTP_TIMEOUT = 0.6
 
 RGB_PREVIEW_SIZE = (640, 360)
 RGB_FPS = 15
@@ -68,9 +69,12 @@ class CPUDetector:
 
 class DockerCoralDetector:
     def __init__(self):
-        health = urlrequest.urlopen(f"{CORAL_DOCKER_URL}/health", timeout=2)
-        if health.status != 200:
-            raise RuntimeError('coral docker health failed')
+        with urlrequest.urlopen(f"{CORAL_DOCKER_URL}/health", timeout=CORAL_HTTP_TIMEOUT) as r:
+            if r.status != 200:
+                raise RuntimeError('coral docker health failed')
+            # Algunos builds reportan ready=false hasta el primer /infer.
+            # Si /health responde 200, permitimos intentar inferencia.
+            _ = json.loads(r.read().decode('utf-8') or '{}')
 
     def detect(self, frame):
         ok, enc = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
@@ -82,8 +86,11 @@ class DockerCoralDetector:
             headers={'Content-Type': 'application/octet-stream'},
             method='POST'
         )
-        with urlrequest.urlopen(req, timeout=2) as resp:
-            data = json.loads(resp.read().decode('utf-8'))
+        try:
+            with urlrequest.urlopen(req, timeout=CORAL_HTTP_TIMEOUT) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+        except (urlerror.URLError, TimeoutError) as e:
+            raise RuntimeError(f'coral docker timeout/error: {e}')
 
         detections = data.get('detections', [])
         in_w, in_h = data.get('input_size', [300, 300])
@@ -300,14 +307,21 @@ def main():
     detector, mode = make_detector()
     log(f'Iniciando YOLO PI LUXONIS CORAL (mode={mode})')
     while True:
-        if STOP_FILE.exists(): break
+        if STOP_FILE.exists():
+            break
         try:
             a = run_once(detector, mode)
-            if a in ('stop', 'exit'): break
+            if a in ('stop', 'exit'):
+                break
         except Exception as e:
             log(f'Reinicio de pipeline por excepción: {e}')
-            if STOP_FILE.exists(): break
-            time.sleep(2)
+            if STOP_FILE.exists():
+                break
+            # Si Coral falla en runtime, degradar a CPU y continuar sin bucle inestable
+            if mode.startswith('coral'):
+                log('Coral inestable: cambio automático a CPU fallback')
+                detector, mode = CPUDetector(), 'cpu'
+            time.sleep(1)
     cv2.destroyAllWindows()
     log('YOLO PI LUXONIS CORAL detenido')
 
