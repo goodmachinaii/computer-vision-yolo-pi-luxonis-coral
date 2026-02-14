@@ -78,3 +78,25 @@ PY
 ## Troubleshooting rápido
 - Si aparece `mode=cpu`: revisar backend Coral (`docker compose ps`, logs, health).
 - Si hay `USB disconnect` en OAK/Coral: revisar cableado, energía y topología USB.
+
+## Correcciones de estabilidad (2026-02-14)
+Se corrigió un caso real donde la app podía quedar lenta/inestable y no cerrar bien cuando Coral estaba intermitente.
+
+### Síntomas observados
+- Arranque lento o inestable en `mode=coral-docker`.
+- En algunos intentos no detectaba objetos.
+- STOP/EXIT podían tardar o parecer bloqueados.
+
+### Causa técnica
+- Respuestas inconsistentes del backend Coral (`/health` con `ready=false` o latencia alta).
+- Llamadas HTTP de inferencia Coral bloqueando de más cuando el backend se degradaba.
+
+### Cambios aplicados en código
+- Timeout HTTP Coral reducido (`CORAL_HTTP_TIMEOUT=0.6`) para evitar bloqueos largos.
+- Inicialización Coral más tolerante: si `/health` responde 200, se permite intentar inferencia aunque `ready=false`.
+- Manejo de error runtime: si Coral falla en ejecución, cambio automático a `cpu` (fallback) sin colgar UI.
+- Mantiene parada confiable con STOP/EXIT + cierre por script.
+
+### Resultado esperado
+- Si Coral está sano: `INFERENCE: CORAL`.
+- Si Coral se vuelve inestable: degradación automática a `INFERENCE: CPU FALLBACK` manteniendo fluidez y control de cierre.
