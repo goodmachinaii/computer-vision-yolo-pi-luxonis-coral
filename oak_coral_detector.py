@@ -16,12 +16,13 @@ from oak_vision.inference import make_detector, CPUDetector
 from oak_vision.depth import depth_text_for_box
 from oak_vision.display import gui_enabled, draw_buttons, draw_hud, show_frames, idle_sleep
 from oak_vision.storage import DetectionStorage
+from oak_vision.api import ApiServer
 
 cv2.setUseOptimized(True)
 cv2.setNumThreads(2)
 
 
-def run_once(settings, detector, mode, storage: DetectionStorage):
+def run_once(settings, detector, mode, storage: DetectionStorage, state: dict):
     clicked = {'stop': False, 'exit': False}
     btn_stop = [0, 0, 0, 0]
     btn_exit = [0, 0, 0, 0]
@@ -83,6 +84,7 @@ def run_once(settings, detector, mode, storage: DetectionStorage):
                     fps = fps_counter / (now - start_t)
                     fps_counter = 0
                     start_t = now
+                    state['fps'] = fps
                 if now - last_frame_ts > 6.0:
                     raise RuntimeError('No llegan frames RGB >6s (reinicio automático)')
 
@@ -99,6 +101,8 @@ def run_once(settings, detector, mode, storage: DetectionStorage):
                     try:
                         cached = detector.detect(frame)
                         infer_ms = (time.monotonic() - t0) * 1000
+                        state['infer_ms'] = infer_ms
+                        state['mode'] = mode
                         coral_timeout_streak = 0
                     except Exception as e:
                         if mode.startswith('coral') and 'timeout' in str(e).lower():
@@ -149,11 +153,19 @@ def main():
     settings.stop_file.unlink(missing_ok=True)
 
     detector, mode = make_detector(settings)
+    state = {'mode': mode, 'fps': 0.0, 'infer_ms': 0.0, 'running': True}
     storage = DetectionStorage(
         db_path=settings.db_path,
         retention_days=settings.db_retention_days,
         prune_every_sec=settings.db_prune_every_sec,
     )
+    api = ApiServer(settings.db_path, state, host=settings.api_host, port=settings.api_port)
+    ok, backend = api.start()
+    if ok:
+        log(settings, f'API local activa en http://{settings.api_host}:{settings.api_port} ({backend})')
+    else:
+        log(settings, f'API local no iniciada ({backend})')
+
     log(settings, f'Iniciando OAK Coral Detector (mode={mode})')
 
     try:
@@ -161,7 +173,7 @@ def main():
             if settings.stop_file.exists():
                 break
             try:
-                action = run_once(settings, detector, mode, storage)
+                action = run_once(settings, detector, mode, storage, state)
                 if action in ('stop', 'exit'):
                     break
             except Exception as e:
@@ -171,8 +183,11 @@ def main():
                 if mode.startswith('coral'):
                     log(settings, 'Coral inestable: cambio automático a CPU fallback')
                     detector, mode = CPUDetector(settings), 'cpu'
+                    state['mode'] = mode
                 time.sleep(1)
     finally:
+        state['running'] = False
+        api.stop()
         storage.close()
 
     log(settings, 'OAK Coral Detector detenido')

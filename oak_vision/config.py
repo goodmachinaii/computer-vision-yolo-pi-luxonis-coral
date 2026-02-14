@@ -27,6 +27,8 @@ class Settings:
     db_path: Path
     db_retention_days: int
     db_prune_every_sec: int
+    api_host: str
+    api_port: int
 
 
 def load_settings() -> Settings:
@@ -53,6 +55,8 @@ def load_settings() -> Settings:
         db_path=Path(os.environ.get('OAK_DB_PATH', base_dir / 'data/oak.db')),
         db_retention_days=int(os.environ.get('OAK_DB_RETENTION_DAYS', '7')),
         db_prune_every_sec=int(os.environ.get('OAK_DB_PRUNE_EVERY_SEC', '300')),
+        api_host=os.environ.get('OAK_API_HOST', '0.0.0.0'),
+        api_port=int(os.environ.get('OAK_API_PORT', '5000')),
     )
 
 
