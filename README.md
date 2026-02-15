@@ -120,6 +120,60 @@ oak_coral_detector.py (orquestador)
 +-----------------------------------------------------------------------+
 ```
 
+### Mapa de responsabilidades
+
+```text
++------------+----------------------------------------------------------+
+| Módulo     | Responsabilidad                                           |
++------------+----------------------------------------------------------+
+| config.py  | Env vars, defaults y validación inicial                  |
+| capture.py | Pipeline DepthAI (rgb + depth)                           |
+| inference.py| Coral HTTP + fallback CPU, devuelve detecciones         |
+| depth.py   | depth_cm por bbox (mediana ROI central)                  |
+| storage.py | Persistencia SQLite + limpieza por retención             |
+| display.py | OSD/bounding boxes + modo GUI/headless                   |
+| api.py     | API local + front estático                               |
++------------+----------------------------------------------------------+
+```
+
+### Flujo end-to-end (hardware → módulos → consumidores)
+
+```text
+LUXONIS OAK (RGB+Depth)
+          |
+          v
+      capture.py
+          |
+          v
+     inference.py <------ coral-infer docker (:8765) <--- Coral USB TPU
+          |
+          v
+       depth.py
+          |
+          +------> storage.py ------> data/oak.db ------> api.py (:5000)
+          |                                                |        |
+          |                                                |        +--> front/index.html
+          |                                                |
+          +------> display.py (OpenCV GUI/headless)       +--> OpenClaw (API o SQL)
+```
+
+### OpenClaw: modos de consulta
+
+```text
+Usuario -> OpenClaw
+            |
+            +--> Modo A: SQL directo (data/oak.db)
+            |
+            +--> Modo B: HTTP local (GET /status, /detections, /stats)
+```
+
+### Antes vs Después (resumen)
+
+```text
+ANTES: monolito único (oak_coral_detector.py)
+DESPUÉS: orquestador + módulos oak_vision/ + SQLite + API + Front + OpenClaw docs
+```
+
 ## Roadmap
 
 ### Iteración 1 (actual, estable) ✅
