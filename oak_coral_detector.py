@@ -13,7 +13,7 @@ import depthai as dai
 from oak_vision.config import load_settings, log
 from oak_vision.capture import build_pipeline
 from oak_vision.inference import make_detector, CPUDetector
-from oak_vision.depth import depth_text_for_box
+from oak_vision.depth import depth_cm_for_box, depth_text
 from oak_vision.display import gui_enabled, draw_buttons, draw_hud, show_frames, idle_sleep
 from oak_vision.storage import DetectionStorage
 from oak_vision.api import ApiServer
@@ -118,13 +118,8 @@ def run_once(settings, detector, mode, storage: DetectionStorage, state: dict):
                 for cid, score, box in zip(class_ids, scores, boxes):
                     x, y, bw, bh = [int(v) for v in box]
                     label = labels.get(cid, str(cid)) if isinstance(labels, dict) else (labels[cid] if cid < len(labels) else str(cid))
-                    z_text = depth_text_for_box(last_depth, frame.shape, box)
-                    depth_cm = None
-                    if 'Z:' in z_text:
-                        try:
-                            depth_cm = float(z_text.split('Z:')[1].replace('cm', '').strip())
-                        except Exception:
-                            depth_cm = None
+                    depth_cm = depth_cm_for_box(last_depth, frame.shape, box)
+                    z_text = depth_text(depth_cm)
                     stored_rows.append({
                         'label': label,
                         'confidence': float(score),
