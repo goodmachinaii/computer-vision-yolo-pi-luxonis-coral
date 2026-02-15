@@ -21,6 +21,7 @@ Usa este skill cuando el usuario pregunte por **qué detectó la cámara**, esta
 - Responder en lenguaje natural, breve y con unidades claras (cm/m).
 - Si no hay datos recientes, decirlo explícitamente.
 - Si API no responde, usar queries SQLite del catálogo `queries.md`.
+- **Zona horaria:** los timestamps en DB/API están en **UTC**; al responder al usuario, convertir/explicar en hora local cuando aplique.
 
 ## Ejemplos de intención
 
