@@ -125,6 +125,14 @@ class ApiServer:
                 if p.path == '/detections':
                     rows = outer._query("SELECT timestamp, mode, infer_ms, label, confidence, bbox_x, bbox_y, bbox_w, bbox_h, depth_cm FROM detections ORDER BY id DESC LIMIT 50")
                     return self._send({'objects': rows})
+                if p.path == '/detections/history':
+                    qs = parse_qs(p.query)
+                    minutes = int((qs.get('minutes') or ['60'])[0])
+                    rows = outer._query(
+                        "SELECT timestamp, mode, infer_ms, label, confidence, depth_cm FROM detections WHERE timestamp >= datetime('now', ?) ORDER BY id DESC LIMIT 500",
+                        (f'-{minutes} minutes',),
+                    )
+                    return self._send(rows)
                 if p.path == '/detections/stats':
                     qs = parse_qs(p.query)
                     hours = int((qs.get('hours') or ['24'])[0])
