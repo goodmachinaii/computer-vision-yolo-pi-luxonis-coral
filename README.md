@@ -4,7 +4,13 @@ Detección de objetos en tiempo real + profundidad (Z) con **Luxonis OAK** y ace
 
 ## Lenguajes del repositorio
 
-![Top Langs](https://github-readme-stats.vercel.app/api/top-langs/?username=goodmachinaii&repo=oak-coral-detector&layout=compact&langs_count=8)
+> Fuente: GitHub Linguist (API del repo)
+
+- Python      `88.0%`  ██████████████████░░
+- Shell        `8.4%`  ██░░░░░░░░░░░░░░░░░
+- Dockerfile   `3.6%`  █░░░░░░░░░░░░░░░░░░
+
+Ver detalle en GitHub: **Insights → Languages**
 
 ## Modelo real del sistema
 
